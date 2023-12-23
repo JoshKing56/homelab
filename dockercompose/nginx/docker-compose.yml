@@ -6,8 +6,9 @@ networks:
 
 services:
     nginx:
-        container: nginx
+        container_name: nginx
         image: nginx
+        restart: always
         ports:
             - 80:80
         networks:
