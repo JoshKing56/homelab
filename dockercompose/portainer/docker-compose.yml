@@ -1,5 +1,9 @@
 version: '3'
 
+networks:
+    external:
+        external: yes
+
 services:
     portainer:
         image: portainer/portainer-ce:latest
@@ -10,6 +14,6 @@ services:
         volumes:
             - /etc/localtime:/etc/localtime:ro
             - /var/run/docker.sock:/var/run/docker.sock:ro
-            - ./portainer-data:/data
-        # ports:
-        #    - 9000:9000
+            - ~/data/portainer:/data
+        networks: 
+            - external 
