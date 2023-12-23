@@ -1,0 +1,21 @@
+version: '3.9'
+
+networks:
+    external:
+        external: true
+    internal:
+        external: false
+
+services:
+    cloudflaretunnel:
+        container_name: cloudflared-tunnel
+        image: cloudflare/cloudflared
+        restart: unless-stopped 
+        command: tunnel --no-autoupdate run 
+        environment:
+            - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+        networks:
+            - external
+        
+
+
