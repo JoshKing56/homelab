@@ -13,6 +13,6 @@ services:
             - 80:80
         networks:
             - external
-        volume:
+        volumes:
             - ./site:/var/www
 
