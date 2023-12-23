@@ -1,0 +1,17 @@
+version '3.9'
+
+networks:
+    external:
+        external: true
+
+services:
+    nginx:
+        container: nginx
+        image: nginx
+        ports:
+            - 80:80
+        networks:
+            - external
+        volume:
+            - ./site:/var/www
+
