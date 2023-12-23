@@ -14,5 +14,5 @@ services:
         networks:
             - external
         volumes:
-            - ./site:/usr/share/nginx/html
+            - /home/core/personal_site/_site:/usr/share/nginx/html
 
