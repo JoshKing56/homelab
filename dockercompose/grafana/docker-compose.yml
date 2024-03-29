@@ -1,0 +1,29 @@
+version: '3'
+services:
+  influxdb:
+    image: quay.io/influxdb/influxdb:v2.2.0
+    container_name: influxdb
+    volumes:
+      - influxdbv2:/root/.influxdbv2
+    ports:
+      - "8086:8086"
+  influxdb_cli:
+    links:
+      - influxdb
+    image: quay.io/influxdb/influxdb:v2.2.0
+    container_name: influxdb_cli
+    entrypoint: influx setup --bucket telegraf -t secretToken -o Stangneth --username=admin --password=Passsw0rd! --host=http://influxdb:8086 -f
+    restart: on-failure:10
+    depends_on:
+      - influxdb
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    links:
+      - influxdb
+    volumes:
+      - /home/telegraf/mytelegraf.conf:/etc/telegraf/telegraf.conf
+    depends_on:
+      - influxdb_cli
+volumes:
+  influxdbv2:
