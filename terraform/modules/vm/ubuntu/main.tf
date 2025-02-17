@@ -53,6 +53,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
   disk {
     datastore_id = "storagezfs"
     interface    = "scsi0"
+    file_format  = "raw"
   }
 
   network_device {
