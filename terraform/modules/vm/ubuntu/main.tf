@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    proxmox = {
+      source = "bpg/proxmox"
+      version = "0.71.0"
+    }
+  }
+}
+
 data "local_file" "ssh_public_key" {
   filename = var.ssh_key
 }
