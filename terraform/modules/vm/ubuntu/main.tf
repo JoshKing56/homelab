@@ -48,6 +48,7 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
     iothread     = true
     discard      = "on"
     size         = 20
+    bootable     = true
   }
 
   disk {
