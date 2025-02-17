@@ -41,20 +41,16 @@ resource "proxmox_virtual_environment_vm" "ubuntu_vm" {
     floating  = 2048 # set equal to dedicated to enable ballooning
   }
 
-  disk {
-    datastore_id = "local-lvm"
-    file_id      = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
-    interface    = "virtio0"
-    iothread     = true
-    discard      = "on"
-    size         = 20
-    bootable     = true
+  cdrom {
+    enabled = true
+    file_id = proxmox_virtual_environment_download_file.ubuntu_cloud_image.id
   }
 
   disk {
     datastore_id = "storagezfs"
     interface    = "scsi0"
     file_format  = "raw"
+    size         = "20"
   }
 
   network_device {
