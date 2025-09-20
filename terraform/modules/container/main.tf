@@ -43,7 +43,7 @@ resource "proxmox_lxc" "container" {
   }
 
   # SSH public key for root access
-  ssh_public_keys = var.ssh_key
+  ssh_public_keys = file(pathexpand(var.ssh_key)) #This makes it so the ~ expands to a real path
 
   # Startup/shutdown behavior
   onboot  = var.onboot
