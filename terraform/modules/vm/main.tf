@@ -30,7 +30,7 @@ resource "proxmox_vm_qemu" "vm" {
   }
 
   bios  = var.bios
-  boot  = var.boot_device_order
+  boot  = var.boot
   agent = var.qemu_agent_enabled ? 1 : 0
   iso   = var.iso_file
 

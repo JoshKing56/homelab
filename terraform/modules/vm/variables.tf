@@ -76,7 +76,7 @@ variable "bios" {
   default     = "seabios"
 }
 
-variable "boot_device_order" {
+variable "boot" {
   description = "Boot device order in Proxmox format (e.g., 'order=scsi0;net0')"
   type        = string
   default     = "order=scsi0;cdrom;net0"
