@@ -2,7 +2,7 @@
 variable "ssh_key" {
   description = "Your public SSH key for container access"
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
+  default     = "~/.ssh/id_ed25519.pub"
 }
 
 # Proxmox host to create the container on
