@@ -109,7 +109,7 @@ variable "vms" {
     network_model      = optional(string)
     vlan_tag           = optional(number)
     bios               = optional(string)
-    boot_order         = optional(string)
+    boot               = optional(string)
     qemu_agent_enabled = optional(bool)
     iso_file           = optional(string)
     os_type            = optional(string)
