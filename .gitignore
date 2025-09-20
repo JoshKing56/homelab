@@ -18,6 +18,10 @@ crash.*.log
 # to change depending on the environment.
 *.tfvars
 *.tfvars.json
+terraform.secrets.tfvars
+
+# But include infrastructure tfvars files that are safe to commit
+!terraform.infra.tfvars
 
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
