@@ -47,6 +47,7 @@ resource "proxmox_lxc" "container" {
 
   # Startup/shutdown behavior
   onboot  = var.onboot
+  start   = var.start
   startup = var.startup_order != null ? "order=${var.startup_order}" : null
 
   # Lifecycle management

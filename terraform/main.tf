@@ -44,4 +44,7 @@ module "container" {
 
   # Authentication
   ssh_key = var.ssh_key
+
+  # Startup configuration
+  start = each.value.start != null ? each.value.start : var.start
 }

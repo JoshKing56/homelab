@@ -75,6 +75,13 @@ variable "nesting_enabled" {
   default     = false
 }
 
+# Container start setting
+variable "start" {
+  description = "Start the container after creation"
+  type        = bool
+  default     = false
+}
+
 # Container settings
 variable "default_container_settings" {
   description = "Default settings for containers"
@@ -111,6 +118,7 @@ variable "containers" {
     fuse_enabled    = optional(bool)
     keyctl_enabled  = optional(bool)
     mknod_enabled   = optional(bool)
+    start           = optional(bool)
   }))
   default = [
     {

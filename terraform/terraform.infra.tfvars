@@ -35,5 +35,6 @@ containers = [
     ip_address      = "dhcp"
     unprivileged    = true
     nesting_enabled = false
+    start           = true
   },
 ]

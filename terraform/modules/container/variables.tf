@@ -42,8 +42,6 @@ variable "swap" {
   default     = null
 }
 
-# storage_name is now hardcoded to "local-lvm" in main.tf
-
 variable "rootfs_size" {
   description = "Size of the root filesystem"
   type        = string
@@ -113,4 +111,10 @@ variable "startup_order" {
   description = "Boot order for the container"
   type        = number
   default     = null
+}
+
+variable "start" {
+  description = "Start the container after creation"
+  type        = bool
+  default     = false
 }
