@@ -76,10 +76,10 @@ variable "bios" {
   default     = "seabios"
 }
 
-variable "boot_order" {
-  description = "Boot order (e.g., 'cdn' for CD-ROM, Disk, Network)"
+variable "boot_device_order" {
+  description = "Boot device order in Proxmox format (e.g., 'order=scsi0;net0')"
   type        = string
-  default     = "cdn"
+  default     = "order=scsi0;cdrom;net0"
 }
 
 variable "qemu_agent_enabled" {

@@ -24,3 +24,24 @@ containers = [
     start           = true
   },
 ]
+
+iso_file = "local:iso/ubuntu-24.04.2-desktop-amd64.iso"
+
+vms = [
+  {
+    hostname           = "ubuntu-server"
+    description        = "Example Ubuntu deskotp VM"
+    cores              = 2
+    sockets            = 1
+    memory             = 4096
+    disk_type          = "scsi"
+    disk_size          = "32G"
+    disk_ssd           = true
+    network_model      = "virtio"
+    vlan_tag           = 0
+    boot_device_order  = "order=scsi0;cdrom;net0"
+    qemu_agent_enabled = true
+    os_type            = "l26"
+    start              = true
+  },
+]

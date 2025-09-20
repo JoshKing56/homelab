@@ -100,7 +100,7 @@ The configuration also supports creating multiple VMs (non cloud-init) with the 
 - Memory allocation
 - Disk settings (type, size, storage, SSD emulation)
 - Network settings (model, bridge, VLAN)
-- Boot settings (BIOS type, boot order)
+- Boot settings (BIOS type, boot device order)
 - OS settings (ISO file, OS type, QEMU agent)
 - Startup behavior (onboot, start)
 
@@ -110,34 +110,33 @@ You can define multiple VMs in the `vms` variable in your `terraform.infra.tfvar
 
 ```hcl
 # ISO file for VM installation (optional)
-iso_file = "local:iso/ubuntu-22.04.3-live-server-amd64.iso"
+iso_file = "local:iso/ubuntu-24.04.2-desktop-amd64.iso"
 
 vms = [
   {
-    hostname          = "ubuntu-server"
-    description       = "Ubuntu Server VM"
-    cores             = 2
-    sockets           = 1
-    memory            = 4096
-    disk_type         = "scsi"
-    disk_size         = "32G"
-    disk_ssd          = true
-    storage_name      = "local-lvm"
-    network_model     = "virtio"
-    vlan_tag          = 10
-    bios              = "seabios"
-    boot_order        = "cdn"
+    hostname           = "ubuntu-server"
+    description        = "Example Ubuntu desktop VM"
+    cores              = 2
+    sockets            = 1
+    memory             = 4096
+    disk_type          = "scsi"
+    disk_size          = "32G"
+    disk_ssd           = true
+    # Storage is hardcoded to "storagezfs" in the module
+    network_model      = "virtio"
+    vlan_tag           = 0
+    boot_device_order  = "order=scsi0;cdrom;net0"
     qemu_agent_enabled = true
-    os_type           = "l26"
-    start             = true
+    os_type            = "l26"
+    start              = true
   },
   {
-    hostname          = "debian-minimal"
-    description       = "Minimal Debian VM"
-    cores             = 1
-    memory            = 2048
-    disk_size         = "16G"
-    iso_file          = "local:iso/debian-12.0.0-amd64-netinst.iso"
+    hostname           = "debian-minimal"
+    description        = "Minimal Debian VM"
+    cores              = 1
+    memory             = 2048
+    disk_size          = "16G"
+    # Will use the global ISO file defined above
   }
 ]
 ```
@@ -185,6 +184,7 @@ terraform output container["ubuntu-web"].container_ip
 - The container module supports both DHCP and static IP configuration
 - Unprivileged containers are more secure but have some limitations
 - You may need to download LXC templates to your Proxmox host first
+- The VM module has the storage parameter hardcoded to "storagezfs" - modify this in the module's main.tf if you need to use a different storage
 
 ## Troubleshooting
 

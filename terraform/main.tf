@@ -61,11 +61,11 @@ module "vm" {
   network_bridge = var.nic_name
   vlan_tag       = each.value.vlan_tag != null ? each.value.vlan_tag : var.vlan_num
 
-  bios              = each.value.bios
-  boot_order        = each.value.boot_order
+  bios               = each.value.bios
+  boot_device_order  = each.value.boot_device_order
   qemu_agent_enabled = each.value.qemu_agent_enabled
-  iso_file          = each.value.iso_file != null ? each.value.iso_file : var.iso_file
-  os_type           = each.value.os_type
+  iso_file           = each.value.iso_file != null ? each.value.iso_file : var.iso_file
+  os_type            = each.value.os_type
 
   onboot        = each.value.onboot
   startup_order = each.value.startup_order
