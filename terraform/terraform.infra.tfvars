@@ -8,7 +8,7 @@ ip_address = "dhcp"
 # For static IP, use format: "192.168.1.100/24,gw=192.168.1.1"
 
 # LXC container template
-container_template = "local:vztmpl/ubuntu-25.04-standard_25.04-1_amd64.tar.gz"
+container_template = "local:vztmpl/ubuntu-25.04-standard_25.04-1.1_amd64.tar.gz"
 
 # Container privilege settings
 unprivileged    = true
