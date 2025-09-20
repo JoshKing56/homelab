@@ -36,7 +36,7 @@ This directory contains Terraform configurations to manage multiple Proxmox LXC 
 
 ```
 terraform/
-├── main.tf                   # Main configuration with provider and container definition
+├── main.tf                   # Main configuration with provider and module definitions
 ├── variables.tf              # Variable definitions
 ├── outputs.tf                # Output definitions
 ├── terraform.infra.tfvars      # Infrastructure settings (safe to commit)
@@ -44,10 +44,13 @@ terraform/
 ├── terraform.secrets.tfvars    # Sensitive values (do not commit)
 ├── terraform.secrets.example   # Example template for secrets file
 ├── modules/
-│   └── container/            # LXC container module
+│   ├── container/            # LXC container module
+│   └── vm/                   # VM module (non cloud-init)
 ```
 
-## Container Configuration
+## Resource Configuration
+
+### Container Configuration
 
 The configuration creates multiple LXC containers with the following customizable parameters for each container:
 
@@ -62,7 +65,7 @@ The configuration creates multiple LXC containers with the following customizabl
 
 You can define multiple containers in the `containers` variable in your `terraform.infra.tfvars` file. Each container should have its own specific settings. If any settings are not specified for a container, the module will use its default values defined in the module's variables.tf file.
 
-### Example Container Configuration
+#### Example Container Configuration
 
 ```hcl
 containers = [
@@ -84,6 +87,57 @@ containers = [
     cores           = 1
     memory          = 1024
     ip_address      = "192.168.1.150/24,gw=192.168.1.1"
+  }
+]
+```
+
+### VM Configuration
+
+The configuration also supports creating multiple VMs (non cloud-init) with the following customizable parameters:
+
+- VM hostname
+- CPU cores and sockets
+- Memory allocation
+- Disk settings (type, size, storage, SSD emulation)
+- Network settings (model, bridge, VLAN)
+- Boot settings (BIOS type, boot order)
+- OS settings (ISO file, OS type, QEMU agent)
+- Startup behavior (onboot, start)
+
+You can define multiple VMs in the `vms` variable in your `terraform.infra.tfvars` file. Each VM should have its own specific settings. If any settings are not specified for a VM, the module will use its default values defined in the module's variables.tf file.
+
+#### Example VM Configuration
+
+```hcl
+# ISO file for VM installation (optional)
+iso_file = "local:iso/ubuntu-22.04.3-live-server-amd64.iso"
+
+vms = [
+  {
+    hostname          = "ubuntu-server"
+    description       = "Ubuntu Server VM"
+    cores             = 2
+    sockets           = 1
+    memory            = 4096
+    disk_type         = "scsi"
+    disk_size         = "32G"
+    disk_ssd          = true
+    storage_name      = "local-lvm"
+    network_model     = "virtio"
+    vlan_tag          = 10
+    bios              = "seabios"
+    boot_order        = "cdn"
+    qemu_agent_enabled = true
+    os_type           = "l26"
+    start             = true
+  },
+  {
+    hostname          = "debian-minimal"
+    description       = "Minimal Debian VM"
+    cores             = 1
+    memory            = 2048
+    disk_size         = "16G"
+    iso_file          = "local:iso/debian-12.0.0-amd64-netinst.iso"
   }
 ]
 ```

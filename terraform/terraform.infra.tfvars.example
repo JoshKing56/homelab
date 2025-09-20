@@ -24,3 +24,36 @@ containers = [
     start           = true
   },
 ]
+
+# ISO file for VM installation (optional)
+iso_file = "local:iso/ubuntu-24.04.2-desktop-amd64.iso"
+
+# List of VMs to create
+vms = [
+  {
+    hostname          = "ubuntu-server"
+    description       = "Ubuntu Server VM"
+    cores             = 2
+    sockets           = 1
+    memory            = 4096
+    disk_type         = "scsi"
+    disk_size         = "32G"
+    disk_ssd          = true
+    storage_name      = "local-lvm"
+    network_model     = "virtio"
+    vlan_tag          = 10
+    bios              = "seabios"
+    boot_order        = "cdn"
+    qemu_agent_enabled = true
+    os_type           = "l26"
+    start             = true
+  },
+  {
+    hostname          = "debian-minimal"
+    description       = "Minimal Debian VM"
+    cores             = 1
+    memory            = 2048
+    disk_size         = "16G"
+    # Using the global ISO file defined above
+  },
+]

@@ -87,3 +87,35 @@ variable "containers" {
     start           = optional(bool)
   }))
 }
+
+variable "iso_file" {
+  description = "Default ISO file to use for VM installation"
+  type        = string
+  default     = null
+}
+
+variable "vms" {
+  description = "List of VMs to create"
+  type = list(object({
+    hostname          = string
+    description       = optional(string, "")
+    cores             = optional(number)
+    sockets           = optional(number)
+    memory            = optional(number)
+    disk_type         = optional(string)
+    disk_size         = optional(string)
+    disk_ssd          = optional(bool)
+    storage_name      = optional(string)
+    network_model     = optional(string)
+    vlan_tag          = optional(number)
+    bios              = optional(string)
+    boot_order        = optional(string)
+    qemu_agent_enabled = optional(bool)
+    iso_file          = optional(string)
+    os_type           = optional(string)
+    onboot            = optional(bool)
+    startup_order     = optional(number)
+    start             = optional(bool)
+  }))
+  default = []
+}
