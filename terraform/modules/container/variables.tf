@@ -3,10 +3,7 @@ variable "hostname" {
   type        = string
 }
 
-# target_node is now hardcoded to "pve" in main.tf
-
 # vmid is now hardcoded to 0 in main.tf to use the next available ID
-
 variable "description" {
   description = "Description of the container"
   type        = string
@@ -39,7 +36,7 @@ variable "memory" {
 variable "swap" {
   description = "Amount of swap in MB (if null, will be calculated based on memory)"
   type        = number
-  default     = null
+  default     = 512
 }
 
 variable "rootfs_size" {

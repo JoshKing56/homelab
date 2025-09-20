@@ -15,7 +15,6 @@ resource "proxmox_lxc" "container" {
   ostemplate   = var.ostemplate
   unprivileged = var.unprivileged
 
-  # Container Resources
   cores  = var.cores
   memory = var.memory
   swap   = var.swap != null ? var.swap : min(max(1024, var.memory / 2), 4096) #Logic based on recommendations from online, may need tweaking
@@ -25,7 +24,6 @@ resource "proxmox_lxc" "container" {
     size    = var.rootfs_size
   }
 
-  # Network
   network {
     name     = "eth0"
     bridge   = var.network_bridge != null ? var.network_bridge : "vmbr0"
@@ -34,7 +32,6 @@ resource "proxmox_lxc" "container" {
     firewall = var.firewall_enabled
   }
 
-  # Features
   features {
     nesting = var.nesting_enabled
     fuse    = var.fuse_enabled
@@ -45,12 +42,10 @@ resource "proxmox_lxc" "container" {
   # SSH public key for root access
   ssh_public_keys = file(pathexpand(var.ssh_key)) #This makes it so the ~ expands to a real path
 
-  # Startup/shutdown behavior
   onboot  = var.onboot
   start   = var.start
   startup = var.startup_order != null ? "order=${var.startup_order}" : null
 
-  # Lifecycle management
   lifecycle {
     ignore_changes = [
       network
