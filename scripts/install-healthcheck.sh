@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Proxmox Health Check Installation Script
-# Deploys the health check automation to Proxmox host
+# Proxmox Data Collector Installation Script
+# Deploys the data collection script to Proxmox host
 
 set -euo pipefail
 
-INSTALL_DIR="/opt/proxmox-healthcheck"
-SCRIPT_NAME="proxmox-healthcheck.sh"
-REPORTS_DIR="/var/log/proxmox-healthcheck"
-SERVICE_NAME="proxmox-healthcheck"
+INSTALL_DIR="/opt/proxmox-datacollector"
+SCRIPT_NAME="proxmox-data-collector.sh"
+REPORTS_DIR="/var/log/proxmox-datacollector"
+SERVICE_NAME="proxmox-datacollector"
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,13 +40,13 @@ if ! command -v pveversion >/dev/null 2>&1; then
     exit 1
 fi
 
-log_info "Installing Proxmox Health Check Automation"
+log_info "Installing Proxmox Data Collector"
 log_info "Proxmox Version: $(pveversion | head -1)"
 
 # Install required dependencies
 log_info "Installing required packages..."
 apt update
-apt install -y jq bc sysstat smartmontools
+apt install -y jq
 
 # Create installation directory
 log_info "Creating installation directory: $INSTALL_DIR"
@@ -67,12 +67,12 @@ fi
 log_info "Creating systemd service..."
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" << EOF
 [Unit]
-Description=Proxmox Health Check
+Description=Proxmox Data Collector
 After=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=$INSTALL_DIR/$SCRIPT_NAME --output-file $REPORTS_DIR/healthcheck-\$(date +\%Y\%m\%d-\%H\%M\%S).json
+ExecStart=$INSTALL_DIR/$SCRIPT_NAME --output-file $REPORTS_DIR/proxmox-data-\$(date +\%Y\%m\%d-\%H\%M\%S).json
 User=root
 StandardOutput=journal
 StandardError=journal
@@ -85,7 +85,7 @@ EOF
 log_info "Creating systemd timer..."
 cat > "/etc/systemd/system/${SERVICE_NAME}.timer" << EOF
 [Unit]
-Description=Run Proxmox Health Check
+Description=Run Proxmox Data Collector
 Requires=${SERVICE_NAME}.service
 
 [Timer]
@@ -102,34 +102,25 @@ EOF
 
 # Create configuration file
 log_info "Creating configuration file..."
-cat > "$INSTALL_DIR/healthcheck.conf" << EOF
-# Proxmox Health Check Configuration
+cat > "$INSTALL_DIR/datacollector.conf" << EOF
+# Proxmox Data Collector Configuration
 
 # Report retention (days)
 REPORT_RETENTION_DAYS=30
 
-# Alert thresholds
-CRITICAL_LOAD_THRESHOLD=8.0
-WARNING_LOAD_THRESHOLD=4.0
-CRITICAL_MEMORY_THRESHOLD=95
-WARNING_MEMORY_THRESHOLD=85
-CRITICAL_DISK_THRESHOLD=95
-WARNING_DISK_THRESHOLD=85
+# Collection settings
+COLLECTION_FREQUENCY="daily"
+COLLECTION_RETENTION_DAYS=30
 
-# Notification settings (configure as needed)
-ENABLE_EMAIL_ALERTS=false
-EMAIL_RECIPIENT="admin@example.com"
-SMTP_SERVER="localhost"
-
-# Webhook settings (for integration with monitoring systems)
-ENABLE_WEBHOOK=false
-WEBHOOK_URL=""
-WEBHOOK_TOKEN=""
+# Transfer settings (optional)
+ENABLE_AUTO_TRANSFER=false
+TRANSFER_DESTINATION="user@local-machine:/path/to/analysis/folder"
+TRANSFER_METHOD="scp"
 EOF
 
 # Create log rotation configuration
 log_info "Setting up log rotation..."
-cat > "/etc/logrotate.d/proxmox-healthcheck" << EOF
+cat > "/etc/logrotate.d/proxmox-datacollector" << EOF
 $REPORTS_DIR/*.json {
     daily
     rotate 30
@@ -145,45 +136,47 @@ EOF
 log_info "Creating cleanup script..."
 cat > "$INSTALL_DIR/cleanup-reports.sh" << EOF
 #!/bin/bash
-# Clean up old health check reports
+# Clean up old data collection reports
 find $REPORTS_DIR -name "*.json" -mtime +30 -delete
 find $REPORTS_DIR -name "*.json.gz" -mtime +90 -delete
 EOF
 chmod +x "$INSTALL_DIR/cleanup-reports.sh"
 
 # Add cleanup to daily cron
-echo "0 2 * * * root $INSTALL_DIR/cleanup-reports.sh" > /etc/cron.d/proxmox-healthcheck-cleanup
+echo "0 2 * * * root $INSTALL_DIR/cleanup-reports.sh" > /etc/cron.d/proxmox-datacollector-cleanup
 
-# Reload systemd and enable services
-log_info "Enabling systemd services..."
+# Reload systemd but don't start services
+log_info "Creating systemd services (not starting)..."
 systemctl daemon-reload
-systemctl enable "${SERVICE_NAME}.timer"
-systemctl start "${SERVICE_NAME}.timer"
+
+# Services are created but not enabled or started
+log_info "Services created but not started - you can enable them later with:"  
+log_info "  systemctl enable --now ${SERVICE_NAME}.timer"
 
 # Create manual run script
 log_info "Creating manual run script..."
-cat > "$INSTALL_DIR/run-healthcheck.sh" << EOF
+cat > "$INSTALL_DIR/run-datacollector.sh" << EOF
 #!/bin/bash
-# Manual health check execution
+# Manual data collection execution
 TIMESTAMP=\$(date +%Y%m%d-%H%M%S)
-OUTPUT_FILE="$REPORTS_DIR/manual-healthcheck-\$TIMESTAMP.json"
+OUTPUT_FILE="$REPORTS_DIR/manual-data-\$TIMESTAMP.json"
 
-echo "Running Proxmox Health Check..."
+echo "Running Proxmox Data Collector..."
 echo "Output will be saved to: \$OUTPUT_FILE"
 
 $INSTALL_DIR/$SCRIPT_NAME --output-file "\$OUTPUT_FILE"
 
-echo "Health check completed!"
+echo "Data collection completed!"
 echo "View results: jq . \$OUTPUT_FILE"
 EOF
-chmod +x "$INSTALL_DIR/run-healthcheck.sh"
+chmod +x "$INSTALL_DIR/run-datacollector.sh"
 
 # Create symlink for easy access
-ln -sf "$INSTALL_DIR/run-healthcheck.sh" /usr/local/bin/proxmox-healthcheck
+ln -sf "$INSTALL_DIR/run-datacollector.sh" /usr/local/bin/proxmox-datacollector
 
-# Run initial health check
-log_info "Running initial health check..."
-"$INSTALL_DIR/run-healthcheck.sh"
+# Skip initial data collection
+log_info "Skipping initial data collection - you can run it manually later with:"  
+log_info "  $INSTALL_DIR/run-datacollector.sh"
 
 # Display installation summary
 log_info "Installation completed successfully!"
@@ -192,23 +185,25 @@ echo "=== Installation Summary ==="
 echo "Installation Directory: $INSTALL_DIR"
 echo "Reports Directory: $REPORTS_DIR"
 echo "Service Name: $SERVICE_NAME"
-echo "Timer Status: $(systemctl is-active ${SERVICE_NAME}.timer)"
+echo "Timer Status: inactive (not started)"
 echo
 echo "=== Usage ==="
-echo "Manual run: proxmox-healthcheck"
+echo "Manual run: proxmox-datacollector"
 echo "View timer status: systemctl status ${SERVICE_NAME}.timer"
 echo "View service logs: journalctl -u ${SERVICE_NAME}.service"
 echo "View latest report: ls -la $REPORTS_DIR/"
 echo
 echo "=== Schedule ==="
-echo "Automatic runs: Daily at 6:00 AM and 5 minutes after boot"
-echo "Report retention: 30 days (configurable in $INSTALL_DIR/healthcheck.conf)"
+echo "Automatic runs: Not enabled - must be manually started"
+echo "When enabled: Daily at 6:00 AM and 5 minutes after boot"
+echo "Report retention: 30 days (configurable in $INSTALL_DIR/datacollector.conf)"
 echo
 echo "=== Next Steps ==="
-echo "1. Review configuration: $INSTALL_DIR/healthcheck.conf"
-echo "2. Configure email/webhook alerts if desired"
-echo "3. Integrate with monitoring systems using JSON output"
-echo "4. Set up log forwarding to centralized logging if needed"
+echo "1. Review configuration: $INSTALL_DIR/datacollector.conf"
+echo "2. Enable the service when ready: systemctl enable --now ${SERVICE_NAME}.timer"
+echo "3. Or run manually: proxmox-datacollector"
+echo "4. Copy JSON data to local machine for analysis"
+echo "5. Run the analyzer script on your local machine"
 
-log_warn "Note: The health check runs as root and collects comprehensive system information."
+log_warn "Note: The data collector runs as root and collects comprehensive system information."
 log_warn "Ensure proper security measures are in place for the reports directory."

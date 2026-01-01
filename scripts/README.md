@@ -1,11 +1,12 @@
 # Proxmox Health Check Automation
 
-Comprehensive automated health check system for Proxmox VE that runs all diagnostic commands from your manual health check process and outputs structured JSON data.
+Comprehensive automated health check system for Proxmox VE with a split architecture: a server-side data collector and a local analyzer script.
 
 ## Overview
 
-This automation script transforms your 2,458-line manual health check into a fully automated system that:
+This split architecture transforms your 2,458-line manual health check into a fully automated system that:
 
+- **Separates data collection from analysis** for better security and flexibility
 - **Runs all diagnostic commands** from your original health check document
 - **Outputs structured JSON** for easy parsing and integration
 - **Detects critical issues** like EFI corruption, hardware failures, and service problems
@@ -26,45 +27,32 @@ This automation script transforms your 2,458-line manual health check into a ful
 - **Security & Updates**: Available updates, security patches, certificate status
 - **Analysis & Recommendations**: Intelligent issue detection and remediation suggestions
 
-### JSON Output Structure
-```json
-{
-    "metadata": {
-        "script_version": "1.0.0",
-        "timestamp": "2026-01-01T21:51:00Z",
-        "hostname": "pve",
-        "execution_time_seconds": 45
-    },
-    "system_overview": {
-        "pve_version": "pve-manager/8.3.3/f157a38b211595d6",
-        "kernel_info": "Linux pve 6.8.12-8-pve",
-        "services": {
-            "pve_cluster": "running",
-            "pvedaemon": "running"
-        }
-    },
-    "analysis_recommendations": {
-        "critical_issues": 1,
-        "warning_issues": 2,
-        "overall_health": "warning",
-        "recommendations": [
-            "EFI boot partition corruption detected - investigate improper shutdowns"
-        ]
-    }
-}
-```
+### Architecture
+
+**1. Server-Side Data Collector** (`proxmox-data-collector.sh`)
+- Runs on Proxmox host with minimal dependencies
+- Executes all diagnostic commands
+- Outputs raw JSON data without analysis
+- Designed for automated scheduling via systemd/cron
+
+**2. Local Analyzer** (`proxmox-analyzer.py`)
+- Runs on your local machine
+- Takes JSON input from data collector
+- Performs intelligent analysis
+- Generates recommendations and reports
+- Multiple output formats (JSON, summary)
 
 ## Installation
 
 ### Prerequisites
 - Proxmox VE system
-- Root access
-- Internet connection for package installation
+- Root access for server-side installation
+- Python 3.6+ for local analyzer
 
-### Quick Install
+### Server-Side Installation
 ```bash
 # Copy scripts to Proxmox host
-scp proxmox-healthcheck.sh install-healthcheck.sh root@your-proxmox-host:/tmp/
+scp proxmox-data-collector.sh install-healthcheck.sh root@your-proxmox-host:/tmp/
 
 # SSH to Proxmox host
 ssh root@your-proxmox-host
@@ -75,125 +63,143 @@ chmod +x install-healthcheck.sh
 ./install-healthcheck.sh
 ```
 
-### Manual Installation
+### Local Machine Setup
 ```bash
-# Install dependencies
-apt update && apt install -y jq bc sysstat smartmontools
+# Ensure Python 3.6+ is installed
+python3 --version
 
-# Create directories
-mkdir -p /opt/proxmox-healthcheck
-mkdir -p /var/log/proxmox-healthcheck
-
-# Copy and setup script
-cp proxmox-healthcheck.sh /opt/proxmox-healthcheck/
-chmod +x /opt/proxmox-healthcheck/proxmox-healthcheck.sh
-
-# Create systemd service and timer (see install script for details)
+# Copy analyzer script to your local machine
+# No additional dependencies required for the analyzer
 ```
 
 ## Usage
 
-### Manual Execution
+### Complete Workflow
+
 ```bash
-# Run health check and output to console
-proxmox-healthcheck
+# 1. On Proxmox server: Collect data
+proxmox-datacollector
+# This creates a JSON file in /var/log/proxmox-datacollector/
 
-# Save to specific file
-/opt/proxmox-healthcheck/proxmox-healthcheck.sh --output-file /tmp/health-report.json
+# 2. Copy data to local machine
+scp root@your-proxmox:/var/log/proxmox-datacollector/manual-data-*.json ./
 
-# View formatted output
-proxmox-healthcheck | jq .
+# 3. On local machine: Analyze data
+python3 proxmox-analyzer.py manual-data-20260101-123456.json --format summary
+
+# 4. For detailed JSON output
+python3 proxmox-analyzer.py manual-data-20260101-123456.json --output-file analysis-report.json
 ```
 
-### Automated Scheduling
+### Server-Side Scheduling
 
-The installation creates a systemd timer that runs:
-- **Daily at 6:00 AM**
-- **5 minutes after system boot**
-- **Persistent** (catches up if system was offline)
+The installation creates a systemd timer (but does not enable or start it):
+- **When enabled**: Runs daily at 6:00 AM
+- **When enabled**: Runs 5 minutes after system boot
+- **Persistent**: Catches up if system was offline
 
 ```bash
+# Enable and start the timer
+systemctl enable --now proxmox-datacollector.timer
+
 # Check timer status
-systemctl status proxmox-healthcheck.timer
+systemctl status proxmox-datacollector.timer
 
 # View service logs
-journalctl -u proxmox-healthcheck.service
+journalctl -u proxmox-datacollector.service
 
-# Manual timer trigger
-systemctl start proxmox-healthcheck.service
+# Manual data collection (always available)
+proxmox-datacollector
 ```
 
 ### Cron Alternative
 If you prefer cron over systemd timers:
 ```bash
-# Add to root crontab
-0 6 * * * /opt/proxmox-healthcheck/proxmox-healthcheck.sh --output-file /var/log/proxmox-healthcheck/daily-$(date +\%Y\%m\%d).json
-
-# Weekly comprehensive check
-0 2 * * 0 /opt/proxmox-healthcheck/proxmox-healthcheck.sh --output-file /var/log/proxmox-healthcheck/weekly-$(date +\%Y\%m\%d).json
+# Add to root crontab on Proxmox
+0 6 * * * /opt/proxmox-datacollector/proxmox-data-collector.sh --output-file /var/log/proxmox-datacollector/daily-$(date +\%Y\%m\%d).json
 ```
 
 ## Configuration
 
-### Main Configuration
-Edit `/opt/proxmox-healthcheck/healthcheck.conf`:
+### Server-Side Configuration
+Edit `/opt/proxmox-datacollector/datacollector.conf`:
 ```bash
 # Report retention
 REPORT_RETENTION_DAYS=30
 
-# Alert thresholds
-CRITICAL_LOAD_THRESHOLD=8.0
-WARNING_LOAD_THRESHOLD=4.0
-CRITICAL_MEMORY_THRESHOLD=95
-WARNING_MEMORY_THRESHOLD=85
+# Collection settings
+COLLECTION_FREQUENCY="daily"
 
-# Notifications
-ENABLE_EMAIL_ALERTS=true
-EMAIL_RECIPIENT="admin@yourdomain.com"
+# Transfer settings (optional)
+ENABLE_AUTO_TRANSFER=false
+TRANSFER_DESTINATION="user@local-machine:/path/to/analysis/folder"
+```
+
+### Analyzer Configuration
+The analyzer script has command-line options:
+```bash
+python3 proxmox-analyzer.py --help
+
+# Output formats
+python3 proxmox-analyzer.py input.json --format json|summary
+
+# Output file
+python3 proxmox-analyzer.py input.json --output-file report.json
 ```
 
 ### Log Rotation
-Reports are automatically rotated via `/etc/logrotate.d/proxmox-healthcheck`:
+Reports are automatically rotated via `/etc/logrotate.d/proxmox-datacollector`:
 - Daily rotation
 - 30 days retention
 - Compression after 1 day
 
 ## Integration Examples
 
-### Monitoring Systems
+### Automated Data Transfer
+
+#### SCP Transfer Script
+```bash
+#!/bin/bash
+# On Proxmox server
+LATEST=$(ls -t /var/log/proxmox-datacollector/*.json | head -1)
+DEST="user@local-machine:/path/to/analysis/folder/"
+
+scp "$LATEST" "$DEST"
+```
+
+#### Automated Analysis
+```bash
+#!/bin/bash
+# On local machine
+DATA_DIR="/path/to/analysis/folder"
+LATEST=$(ls -t $DATA_DIR/*.json | head -1)
+
+# Run analysis
+python3 proxmox-analyzer.py "$LATEST" --output-file "$DATA_DIR/analysis-$(basename $LATEST)"
+
+# Check for critical issues
+CRITICAL=$(jq '.summary.critical_issues' "$DATA_DIR/analysis-$(basename $LATEST)")
+if [[ $CRITICAL -gt 0 ]]; then
+    # Send alert
+    mail -s "Proxmox Critical Issues Detected" admin@yourdomain.com < \
+      <(jq -r '.summary.recommendations[]' "$DATA_DIR/analysis-$(basename $LATEST)")
+fi
+```
+
+### Monitoring Integration
 
 #### Grafana Dashboard
 ```bash
-# Export metrics to InfluxDB
-jq -r '.analysis_recommendations.critical_issues' /var/log/proxmox-healthcheck/latest.json
-```
-
-#### Prometheus Integration
-```bash
-# Create metrics endpoint
-echo "proxmox_critical_issues $(jq '.analysis_recommendations.critical_issues' /path/to/report.json)" > /var/lib/node_exporter/textfile_collector/proxmox_health.prom
-```
-
-### Alerting
-
-#### Email Alerts
-```bash
-#!/bin/bash
-REPORT="/var/log/proxmox-healthcheck/latest.json"
-CRITICAL=$(jq '.analysis_recommendations.critical_issues' "$REPORT")
-
-if [[ $CRITICAL -gt 0 ]]; then
-    jq '.analysis_recommendations.recommendations[]' "$REPORT" | \
-    mail -s "Proxmox Critical Issues Detected" admin@yourdomain.com
-fi
+# Export metrics from analyzer output
+jq -r '.summary.critical_issues' analysis-report.json
 ```
 
 #### Slack/Discord Webhook
 ```bash
 #!/bin/bash
 WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-REPORT="/var/log/proxmox-healthcheck/latest.json"
-HEALTH=$(jq -r '.analysis_recommendations.overall_health' "$REPORT")
+REPORT="analysis-report.json"
+HEALTH=$(jq -r '.summary.overall_health' "$REPORT")
 
 if [[ "$HEALTH" != "healthy" ]]; then
     curl -X POST -H 'Content-type: application/json' \
@@ -233,159 +239,216 @@ local0.* @@logserver.yourdomain.com:514
 
 ## Troubleshooting
 
-### Common Issues
+### Server-Side Issues
 
 #### Permission Errors
 ```bash
 # Ensure script runs as root
-sudo /opt/proxmox-healthcheck/proxmox-healthcheck.sh
+sudo /opt/proxmox-datacollector/proxmox-data-collector.sh
 
 # Check file permissions
-ls -la /opt/proxmox-healthcheck/
+ls -la /opt/proxmox-datacollector/
 ```
 
 #### Missing Dependencies
 ```bash
 # Install missing tools
-apt install -y jq bc sysstat smartmontools
+apt install -y jq
 
 # Verify installation
 jq --version
-bc --version
-iostat -V
-smartctl --version
 ```
 
 #### Service Not Running
 ```bash
 # Check systemd status
-systemctl status proxmox-healthcheck.timer
-systemctl status proxmox-healthcheck.service
+systemctl status proxmox-datacollector.timer
+systemctl status proxmox-datacollector.service
 
 # View logs
-journalctl -u proxmox-healthcheck.service -f
+journalctl -u proxmox-datacollector.service -f
 
 # Restart services
-systemctl restart proxmox-healthcheck.timer
+systemctl restart proxmox-datacollector.timer
 ```
 
-### Debug Mode
-```bash
-# Run with verbose output
-bash -x /opt/proxmox-healthcheck/proxmox-healthcheck.sh
+### Analyzer Issues
 
-# Check temporary files (if script fails)
-ls -la /tmp/tmp.*/
+#### Python Version
+```bash
+# Check Python version (requires 3.6+)
+python3 --version
+```
+
+#### JSON Parsing Errors
+```bash
+# Validate JSON file
+jq empty input.json && echo "Valid JSON" || echo "Invalid JSON"
+
+# Check file permissions
+ls -la input.json
+```
+
+#### Debug Mode
+```bash
+# Run data collector with verbose output
+bash -x /opt/proxmox-datacollector/proxmox-data-collector.sh
+
+# Run analyzer with verbose Python
+python3 -v proxmox-analyzer.py input.json
 ```
 
 ## Security Considerations
 
+### Split Architecture Benefits
+- **Minimal server footprint** - only data collection on production
+- **No complex analysis logic** on critical infrastructure
+- **Sensitive data stays local** after collection
+
 ### File Permissions
-- Scripts run as root for full system access
+- Data collector runs as root for full system access
 - Reports contain sensitive system information
 - Secure the reports directory appropriately
 
-### Network Security
-- Health checks include network diagnostics
-- Consider firewall rules for remote monitoring
-- Use secure channels for log forwarding
-
-### Data Retention
-- Configure appropriate retention policies
+### Data Transfer
+- Use secure methods (SCP/SFTP) for transferring data
 - Consider encryption for stored reports
 - Implement secure deletion for old reports
 
+### Network Security
+- Data collection includes network diagnostics
+- Consider firewall rules for remote monitoring
+- Use secure channels for data transfer
+
 ## Customization
 
-### Adding Custom Checks
+### Adding Custom Data Collection
 ```bash
-# Add to the script in run_custom_checks() function
-run_custom_checks() {
-    log_info "Running custom checks..."
+# Add to proxmox-data-collector.sh
+collect_custom_data() {
+    log_info "Collecting custom data..."
     
     # Your custom diagnostic commands
     safe_exec "your-custom-command" "$TEMP_DIR/custom_check.out"
-    
-    # Process results and add to JSON
+}
+
+# Add to main() function
+main() {
+    # Existing collection functions
+    collect_custom_data  # Add your custom function
 }
 ```
 
-### Modifying Thresholds
-Edit the analysis section in `proxmox-healthcheck.sh`:
-```bash
-# Customize alert thresholds
-if (( $(echo "$load_avg > 10.0" | bc -l) )); then
-    ((critical_issues++))
-fi
+### Adding Custom Analysis
+```python
+# Add to proxmox-analyzer.py
+def analyze_custom_data(self) -> Dict[str, Any]:
+    """Analyze custom data"""
+    
+    custom_output = self.outputs.get('custom_check', '')
+    # Your custom analysis logic
+    
+    return {
+        "custom_metric": result
+    }
+
+# Add to analyze_all() method
+def analyze_all(self):
+    # Existing analysis
+    custom_analysis = self.analyze_custom_data()
+    # Add to final report
 ```
 
-### Custom Output Formats
-```bash
-# Add CSV output option
-if [[ "$OUTPUT_FORMAT" == "csv" ]]; then
-    generate_csv_report
-fi
+### Modifying Analysis Thresholds
+```python
+# In proxmox-analyzer.py
+if load_1min > 10.0:  # Change threshold
+    self.add_issue("critical", "performance",
+                 f"High system load: {load_1min}",
+                 "Investigate high CPU usage")
 ```
 
 ## Performance Impact
 
-### Resource Usage
+### Server-Side Resource Usage
 - **CPU**: Low impact, mostly I/O bound operations
-- **Memory**: ~50MB peak usage during execution
+- **Memory**: ~30MB peak usage during execution
 - **Disk**: Minimal, mainly for temporary files and reports
 - **Network**: Only for connectivity tests
 
+### Local Analyzer Resource Usage
+- **CPU**: Moderate impact during analysis
+- **Memory**: ~50MB peak usage during execution
+- **Disk**: Minimal, only for report generation
+
 ### Execution Time
-- **Typical runtime**: 30-60 seconds
+- **Data collection**: 30-60 seconds on Proxmox host
+- **Analysis**: 1-5 seconds on local machine
 - **Factors**: Number of VMs/containers, storage complexity, network tests
-- **Optimization**: Skip non-essential checks if needed
 
 ## Maintenance
 
 ### Regular Tasks
 ```bash
-# Update the script
-cd /opt/proxmox-healthcheck
-wget -O proxmox-healthcheck.sh.new https://your-repo/proxmox-healthcheck.sh
+# Update the data collector
+cd /opt/proxmox-datacollector
+wget -O proxmox-data-collector.sh.new https://your-repo/proxmox-data-collector.sh
+# Review changes and replace
+
+# Update the analyzer
+wget -O proxmox-analyzer.py.new https://your-repo/proxmox-analyzer.py
 # Review changes and replace
 
 # Clean old reports manually
-find /var/log/proxmox-healthcheck -name "*.json" -mtime +60 -delete
-
-# Review and update thresholds
-vim /opt/proxmox-healthcheck/healthcheck.conf
+find /var/log/proxmox-datacollector -name "*.json" -mtime +60 -delete
 ```
 
-### Monitoring the Monitor
+### Monitoring the Data Collection
 ```bash
-# Check if health checks are running
-ls -la /var/log/proxmox-healthcheck/ | tail -5
+# Check if data collection is running
+ls -la /var/log/proxmox-datacollector/ | tail -5
 
 # Verify recent execution
-systemctl list-timers | grep proxmox-healthcheck
+systemctl list-timers | grep proxmox-datacollector
 
 # Monitor for script failures
-journalctl -u proxmox-healthcheck.service --since "1 week ago" | grep -i error
+journalctl -u proxmox-datacollector.service --since "1 week ago" | grep -i error
 ```
 
 ## Support
 
 ### Log Locations
-- **Service logs**: `journalctl -u proxmox-healthcheck.service`
-- **Health reports**: `/var/log/proxmox-healthcheck/`
-- **Configuration**: `/opt/proxmox-healthcheck/healthcheck.conf`
+
+**Server-Side:**
+- **Service logs**: `journalctl -u proxmox-datacollector.service`
+- **Data files**: `/var/log/proxmox-datacollector/`
+- **Configuration**: `/opt/proxmox-datacollector/datacollector.conf`
 - **Installation logs**: `/var/log/syslog` (during installation)
 
-### Useful Commands
-```bash
-# View latest report summary
-jq '.analysis_recommendations' /var/log/proxmox-healthcheck/$(ls -t /var/log/proxmox-healthcheck/*.json | head -1)
+**Local Machine:**
+- **Analysis reports**: Wherever you save the analyzer output
 
-# Check script version
-grep "SCRIPT_VERSION=" /opt/proxmox-healthcheck/proxmox-healthcheck.sh
+### Useful Commands
+
+**Server-Side:**
+```bash
+# View latest data collection
+ls -la /var/log/proxmox-datacollector/ | head -5
+
+# Check data collector version
+grep "SCRIPT_VERSION=" /opt/proxmox-datacollector/proxmox-data-collector.sh
 
 # Validate JSON output
-jq empty /var/log/proxmox-healthcheck/latest.json && echo "Valid JSON" || echo "Invalid JSON"
+jq empty /var/log/proxmox-datacollector/latest.json && echo "Valid JSON" || echo "Invalid JSON"
 ```
 
-This automation system provides the same comprehensive diagnostics as your manual process but with the benefits of automation, structured output, and integration capabilities. The JSON format makes it easy to build dashboards, alerts, and integrate with existing monitoring infrastructure.
+**Local Machine:**
+```bash
+# View analyzer summary
+python3 proxmox-analyzer.py data-file.json --format summary
+
+# Extract specific metrics
+python3 proxmox-analyzer.py data-file.json | jq '.summary.critical_issues'
+```
+
+This split architecture provides the same comprehensive diagnostics as your manual process but with the benefits of separation of concerns, better security, and more flexibility. The server-side component is lightweight while the local analyzer provides powerful insights without burdening your production systems.
