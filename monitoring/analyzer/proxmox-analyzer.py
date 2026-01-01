@@ -13,6 +13,7 @@ import re
 from datetime import datetime
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
+import textwrap
 
 @dataclass
 class HealthIssue:
@@ -459,7 +460,7 @@ def main():
     parser = argparse.ArgumentParser(description='Analyze Proxmox health check data')
     parser.add_argument('input_file', help='JSON file from data collector')
     parser.add_argument('--output-file', help='Output file for analysis report')
-    parser.add_argument('--format', choices=['json', 'summary'], default='json',
+    parser.add_argument('--format', choices=['json', 'summary', 'markdown'], default='json',
                        help='Output format (default: json)')
     
     args = parser.parse_args()
@@ -494,6 +495,16 @@ def main():
             print(f"\nRecommendations:")
             for rec in report['summary']['recommendations']:
                 print(f"  {rec}")
+    elif args.format == 'markdown':
+        # Generate markdown report
+        output = generate_markdown_report(report)
+        
+        if args.output_file:
+            with open(args.output_file, 'w') as f:
+                f.write(output)
+            print(f"Markdown report saved to: {args.output_file}", file=sys.stderr)
+        else:
+            print(output)
     else:
         # Output JSON
         output = json.dumps(report, indent=2)
@@ -504,6 +515,228 @@ def main():
             print(f"Analysis report saved to: {args.output_file}", file=sys.stderr)
         else:
             print(output)
+
+def generate_markdown_report(report: Dict[str, Any]) -> str:
+    """Generate a comprehensive markdown report from the analysis results"""
+    
+    # Extract metadata
+    hostname = report['metadata']['source_hostname']
+    timestamp = report['metadata']['analysis_timestamp']
+    analyzer_version = report['metadata']['analyzer_version']
+    
+    # Extract summary data
+    overall_health = report['summary']['overall_health'].upper()
+    critical_issues = report['summary']['critical_issues']
+    warning_issues = report['summary']['warning_issues']
+    info_issues = report['summary']['info_issues']
+    total_issues = critical_issues + warning_issues + info_issues
+    
+    # Health status emoji
+    health_emoji = "🔴" if overall_health == "CRITICAL" else "🟠" if overall_health == "WARNING" else "🟢"
+    
+    # Start building markdown
+    md = []
+    
+    # Title and metadata
+    md.append(f"# Proxmox Health Check Report: {hostname} {health_emoji}")
+    md.append(f"")
+    md.append(f"**Generated:** {timestamp}")
+    md.append(f"**Analyzer Version:** {analyzer_version}")
+    md.append(f"**Overall Health:** {overall_health}")
+    md.append(f"")
+    
+    # Executive summary
+    md.append(f"## Executive Summary")
+    md.append(f"")
+    md.append(f"| Category | Count |")
+    md.append(f"| -------- | ----- |")
+    md.append(f"| 🔴 Critical Issues | {critical_issues} |")
+    md.append(f"| 🟠 Warning Issues | {warning_issues} |")
+    md.append(f"| 🔵 Info Items | {info_issues} |")
+    md.append(f"| **Total** | **{total_issues}** |")
+    md.append(f"")
+    
+    # Recommendations
+    if report['summary']['recommendations']:
+        md.append(f"### Recommendations")
+        md.append(f"")
+        for i, rec in enumerate(report['summary']['recommendations'], 1):
+            md.append(f"{i}. {rec}")
+        md.append(f"")
+    
+    # Issues list
+    if report['issues']:
+        md.append(f"## Detected Issues")
+        md.append(f"")
+        
+        # Group issues by severity
+        critical = [i for i in report['issues'] if i['severity'] == 'critical']
+        warning = [i for i in report['issues'] if i['severity'] == 'warning']
+        info = [i for i in report['issues'] if i['severity'] == 'info']
+        
+        # Critical issues
+        if critical:
+            md.append(f"### 🔴 Critical Issues")
+            md.append(f"")
+            for i, issue in enumerate(critical, 1):
+                md.append(f"**{i}. {issue['message']}**")
+                md.append(f"   - **Category:** {issue['category']}")
+                md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"")
+        
+        # Warning issues
+        if warning:
+            md.append(f"### 🟠 Warning Issues")
+            md.append(f"")
+            for i, issue in enumerate(warning, 1):
+                md.append(f"**{i}. {issue['message']}**")
+                md.append(f"   - **Category:** {issue['category']}")
+                md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"")
+        
+        # Info issues
+        if info:
+            md.append(f"### 🔵 Information")
+            md.append(f"")
+            for i, issue in enumerate(info, 1):
+                md.append(f"**{i}. {issue['message']}**")
+                md.append(f"   - **Category:** {issue['category']}")
+                md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"")
+    
+    # Detailed Analysis Sections
+    md.append(f"## Detailed Analysis")
+    md.append(f"")
+    
+    # System Overview
+    if 'system_overview' in report['analysis']:
+        md.append(f"### System Overview")
+        md.append(f"")
+        sys_data = report['analysis']['system_overview']
+        md.append(f"- **Proxmox Version:** {sys_data.get('pve_version', 'Unknown')}")
+        md.append(f"- **Kernel:** {sys_data.get('kernel_info', 'Unknown')}")
+        
+        # Services status
+        if 'services' in sys_data:
+            md.append(f"")
+            md.append(f"#### Services Status")
+            md.append(f"")
+            md.append(f"| Service | Status |")
+            md.append(f"| ------- | ------ |")
+            for service, status in sys_data['services'].items():
+                status_emoji = "✅" if status == "running" else "❌"
+                md.append(f"| {service} | {status_emoji} {status} |")
+        md.append(f"")
+    
+    # Hardware Health
+    if 'hardware_health' in report['analysis']:
+        md.append(f"### Hardware Health")
+        md.append(f"")
+        hw_data = report['analysis']['hardware_health']
+        
+        if 'cpu' in hw_data:
+            md.append(f"**CPU:** {hw_data['cpu'].get('model', 'Unknown')} ({hw_data['cpu'].get('cores', 'Unknown')} cores)")
+        
+        if 'memory' in hw_data:
+            mem = hw_data['memory']
+            total_gb = round(mem.get('total_kb', 0) / 1024 / 1024, 2)
+            avail_gb = round(mem.get('available_kb', 0) / 1024 / 1024, 2)
+            usage_pct = mem.get('usage_percent', 0)
+            md.append(f"**Memory:** {avail_gb}GB available of {total_gb}GB total ({usage_pct}% used)")
+            
+            if mem.get('errors_detected', False):
+                md.append(f"⚠️ **Memory errors detected**")
+        md.append(f"")
+    
+    # Storage and Filesystem
+    if 'storage_filesystem' in report['analysis']:
+        md.append(f"### Storage and Filesystem")
+        md.append(f"")
+        storage_data = report['analysis']['storage_filesystem']
+        
+        if storage_data.get('efi_corruption_detected', False):
+            md.append(f"⚠️ **EFI corruption detected**")
+        
+        if storage_data.get('high_usage_filesystems'):
+            md.append(f"")
+            md.append(f"#### High Usage Filesystems")
+            md.append(f"")
+            md.append(f"| Filesystem | Usage |")
+            md.append(f"| ---------- | ----- |")
+            for fs, usage in storage_data['high_usage_filesystems']:
+                usage_emoji = "🔴" if usage > 95 else "🟠"
+                md.append(f"| {fs} | {usage_emoji} {usage}% |")
+        
+        md.append(f"")
+        md.append(f"**Storage Technologies:**")
+        md.append(f"- ZFS: {'Available' if storage_data.get('zfs_available', False) else 'Not available'}")
+        md.append(f"- LVM: {'Available' if storage_data.get('lvm_available', False) else 'Not available'}")
+        md.append(f"")
+    
+    # Network Diagnostics
+    if 'network_diagnostics' in report['analysis']:
+        md.append(f"### Network Diagnostics")
+        md.append(f"")
+        net_data = report['analysis']['network_diagnostics']
+        
+        md.append(f"| Test | Status |")
+        md.append(f"| ---- | ------ |")
+        ping_status = "✅ Success" if net_data.get('ping_test_success', False) else "❌ Failed"
+        dns_status = "✅ Success" if net_data.get('dns_test_success', False) else "❌ Failed"
+        md.append(f"| Internet Connectivity | {ping_status} |")
+        md.append(f"| DNS Resolution | {dns_status} |")
+        md.append(f"")
+        md.append(f"**Network Interfaces:** {net_data.get('interface_count', 0)}")
+        md.append(f"")
+    
+    # Virtualization
+    if 'proxmox_virtualization' in report['analysis']:
+        md.append(f"### Virtualization")
+        md.append(f"")
+        virt_data = report['analysis']['proxmox_virtualization']
+        
+        md.append(f"**Virtual Machines:** {virt_data.get('vm_count', 0)}")
+        md.append(f"**Containers:** {virt_data.get('container_count', 0)}")
+        md.append(f"**Cluster:** {'Available' if virt_data.get('cluster_available', False) else 'Not available'}")
+        md.append(f"")
+    
+    # Performance
+    if 'performance_monitoring' in report['analysis']:
+        md.append(f"### Performance")
+        md.append(f"")
+        perf_data = report['analysis']['performance_monitoring']
+        
+        load = perf_data.get('load_average_1min', 0)
+        load_emoji = "🔴" if load > 8.0 else "🟠" if load > 4.0 else "🟢"
+        md.append(f"**Load Average:** {load_emoji} {load}")
+        md.append(f"**Uptime:** {perf_data.get('uptime_days', 0)} days")
+        md.append(f"")
+    
+    # Security and Updates
+    if 'security_updates' in report['analysis']:
+        md.append(f"### Security and Updates")
+        md.append(f"")
+        sec_data = report['analysis']['security_updates']
+        
+        updates = sec_data.get('upgradable_packages', 0)
+        security = sec_data.get('security_updates', 0)
+        
+        updates_emoji = "🔴" if security > 0 else "🟠" if updates > 20 else "🟢"
+        md.append(f"**Available Updates:** {updates_emoji} {updates} packages ({security} security updates)")
+        
+        cert_status = "✅ Valid" if sec_data.get('certificate_valid', True) else "❌ Expiring or invalid"
+        md.append(f"**SSL Certificate:** {cert_status}")
+        
+        logins = sec_data.get('failed_logins_count', 0)
+        login_emoji = "🟠" if logins > 10 else "🟢"
+        md.append(f"**Failed Logins:** {login_emoji} {logins}")
+        md.append(f"")
+    
+    # Footer
+    md.append(f"---")
+    md.append(f"*Report generated by Proxmox Health Check Analyzer v{analyzer_version}*")
+    
+    return "\n".join(md)
 
 if __name__ == '__main__':
     main()
