@@ -10,7 +10,7 @@ import json
 import sys
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
 import textwrap
@@ -49,7 +49,7 @@ class ProxmoxAnalyzer:
         report = {
             "metadata": {
                 "analyzer_version": "1.0.0",
-                "analysis_timestamp": datetime.utcnow().isoformat() + "Z",
+                "analysis_timestamp": datetime.now(UTC).isoformat().replace('+00:00', 'Z'),
                 "source_hostname": self.metadata.get('hostname', 'unknown'),
                 "source_timestamp": self.metadata.get('timestamp', 'unknown')
             },

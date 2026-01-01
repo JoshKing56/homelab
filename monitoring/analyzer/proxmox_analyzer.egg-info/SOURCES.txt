@@ -1,0 +1,7 @@
+pyproject.toml
+setup.py
+proxmox_analyzer.egg-info/PKG-INFO
+proxmox_analyzer.egg-info/SOURCES.txt
+proxmox_analyzer.egg-info/dependency_links.txt
+proxmox_analyzer.egg-info/requires.txt
+proxmox_analyzer.egg-info/top_level.txt
