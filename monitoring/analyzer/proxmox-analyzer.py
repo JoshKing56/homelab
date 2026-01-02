@@ -21,6 +21,12 @@ class HealthIssue:
     category: str
     message: str
     recommendation: str
+    source_command: str = "unknown"
+    evidence: List[str] = None
+    
+    def __post_init__(self):
+        if self.evidence is None:
+            self.evidence = []
 
 class ProxmoxAnalyzer:
     def __init__(self, raw_data: Dict[str, Any]):
@@ -76,7 +82,9 @@ class ProxmoxAnalyzer:
                     "severity": issue.severity,
                     "category": issue.category,
                     "message": issue.message,
-                    "recommendation": issue.recommendation
+                    "recommendation": issue.recommendation,
+                    "source_command": issue.source_command,
+                    "evidence": issue.evidence
                 }
                 for issue in self.issues
             ]
@@ -91,11 +99,16 @@ class ProxmoxAnalyzer:
         kernel_info = self.extract_first_line('uname')
         
         # Check boot errors
+        boot_errors_output = self.outputs.get('boot_errors', '')
         boot_errors = self.count_non_header_lines('boot_errors')
         if boot_errors > 0:
+            evidence = [line.strip() for line in boot_errors_output.split('\n') 
+                       if line.strip() and not line.startswith('===')][:5]  # First 5 lines
             self.add_issue("warning", "system", 
                          f"Found {boot_errors} boot errors",
-                         "Review boot logs and investigate error causes")
+                         "Review boot logs and investigate error causes",
+                         source_command=self.extract_command('boot_errors'),
+                         evidence=evidence)
         
         # Check service status
         services = {}
@@ -105,9 +118,12 @@ class ProxmoxAnalyzer:
                 services[service] = "running"
             else:
                 services[service] = "not_running"
+                evidence = [line.strip() for line in status_output.split('\n') if line.strip()][:3]
                 self.add_issue("critical", "services",
                              f"Service {service} is not running",
-                             f"Investigate and restart {service} service")
+                             f"Investigate and restart {service} service",
+                             source_command=self.extract_command(service),
+                             evidence=evidence)
         
         return {
             "pve_version": pve_version,
@@ -129,28 +145,42 @@ class ProxmoxAnalyzer:
         
         if mem_total and mem_available:
             mem_usage_percent = ((mem_total - mem_available) / mem_total) * 100
+            meminfo_output = self.outputs.get('meminfo', '')
+            mem_evidence = [line.strip() for line in meminfo_output.split('\n') if 'Mem' in line][:5]
             if mem_usage_percent > 95:
                 self.add_issue("critical", "memory",
                              f"Memory usage at {mem_usage_percent:.1f}%",
-                             "Investigate high memory usage and consider adding RAM")
+                             "Investigate high memory usage and consider adding RAM",
+                             source_command=self.extract_command('meminfo'),
+                             evidence=mem_evidence)
             elif mem_usage_percent > 85:
                 self.add_issue("warning", "memory",
                              f"Memory usage at {mem_usage_percent:.1f}%",
-                             "Monitor memory usage trends")
+                             "Monitor memory usage trends",
+                             source_command=self.extract_command('meminfo'),
+                             evidence=mem_evidence)
         
         # Check for memory errors
+        memory_errors_output = self.outputs.get('memory_errors', '')
         memory_errors = self.count_pattern_matches('memory_errors', r'error|corrupt|fail')
         if memory_errors > 0:
+            error_lines = [line.strip() for line in memory_errors_output.split('\n') 
+                          if re.search(r'error|corrupt|fail', line, re.IGNORECASE) and line.strip()][:5]
             self.add_issue("warning", "memory",
                          f"Found {memory_errors} memory-related errors",
-                         "Check memory hardware and run memory tests")
+                         "Check memory hardware and run memory tests",
+                         source_command=self.extract_command('memory_errors'),
+                         evidence=error_lines)
         
         # Check memory pressure
         memory_pressure = self.outputs.get('memory_pressure', '')
         if 'some' in memory_pressure or 'full' in memory_pressure:
+            pressure_lines = [line.strip() for line in memory_pressure.split('\n') if line.strip()][:3]
             self.add_issue("warning", "memory",
                          "Memory pressure detected",
-                         "Monitor memory usage and consider optimization")
+                         "Monitor memory usage and consider optimization",
+                         source_command=self.extract_command('memory_pressure'),
+                         evidence=pressure_lines)
         
         return {
             "cpu": {
@@ -178,20 +208,30 @@ class ProxmoxAnalyzer:
         ]
         
         efi_issues = 0
+        efi_evidence_lines = []
         for pattern in efi_corruption_patterns:
-            efi_issues += len(re.findall(pattern, fsck_logs, re.IGNORECASE))
+            matches = re.findall(f".*{pattern}.*", fsck_logs, re.IGNORECASE)
+            efi_issues += len(matches)
+            efi_evidence_lines.extend([m.strip() for m in matches])
         
         if efi_issues > 0:
             self.add_issue("critical", "storage",
                          "EFI boot partition corruption detected",
-                         "Investigate improper shutdowns and repair EFI partition")
+                         "Investigate improper shutdowns and repair EFI partition",
+                         source_command=self.extract_command('fsck_logs'),
+                         evidence=efi_evidence_lines[:5])
         
         # Check storage errors
+        storage_errors_output = self.outputs.get('storage_errors', '')
         storage_errors = self.count_non_header_lines('storage_errors')
         if storage_errors > 0:
+            error_evidence = [line.strip() for line in storage_errors_output.split('\n') 
+                             if line.strip() and not line.startswith('===')][:5]
             self.add_issue("warning", "storage",
                          f"Found {storage_errors} storage-related errors",
-                         "Check SMART data and hardware connections")
+                         "Check SMART data and hardware connections",
+                         source_command=self.extract_command('storage_errors'),
+                         evidence=error_evidence)
         
         # Check disk usage
         df_output = self.outputs.get('df_h', '')
@@ -209,12 +249,16 @@ class ProxmoxAnalyzer:
                             high_usage_filesystems.append((filesystem, usage))
                             self.add_issue("critical", "storage",
                                          f"Filesystem {filesystem} at {usage}% capacity",
-                                         f"Free up space on {filesystem} immediately")
+                                         f"Free up space on {filesystem} immediately",
+                                         source_command=self.extract_command('df_h'),
+                                         evidence=[line.strip()])
                         elif usage > 85:
                             high_usage_filesystems.append((filesystem, usage))
                             self.add_issue("warning", "storage",
                                          f"Filesystem {filesystem} at {usage}% capacity",
-                                         f"Monitor and plan cleanup for {filesystem}")
+                                         f"Monitor and plan cleanup for {filesystem}",
+                                         source_command=self.extract_command('df_h'),
+                                         evidence=[line.strip()])
                     except (ValueError, IndexError):
                         continue
         
@@ -234,18 +278,24 @@ class ProxmoxAnalyzer:
         ping_success = '0% packet loss' in ping_output
         
         if not ping_success:
+            ping_evidence = [line.strip() for line in ping_output.split('\n') if line.strip()][-3:]
             self.add_issue("warning", "network",
                          "Internet connectivity test failed",
-                         "Check network configuration and routing")
+                         "Check network configuration and routing",
+                         source_command=self.extract_command('ping_test'),
+                         evidence=ping_evidence)
         
         # Check DNS
         dns_output = self.outputs.get('dns_test', '')
         dns_success = 'Address:' in dns_output
         
         if not dns_success:
+            dns_evidence = [line.strip() for line in dns_output.split('\n') if line.strip()]
             self.add_issue("warning", "network",
                          "DNS resolution test failed",
-                         "Check DNS configuration in /etc/resolv.conf")
+                         "Check DNS configuration in /etc/resolv.conf",
+                         source_command=self.extract_command('dns_test'),
+                         evidence=dns_evidence)
         
         # Count network interfaces
         ip_addr = self.outputs.get('ip_addr', '')
@@ -290,14 +340,19 @@ class ProxmoxAnalyzer:
         if loadavg:
             try:
                 load_1min = float(loadavg.split()[0])
+                load_evidence = [loadavg.strip()]
                 if load_1min > 8.0:
                     self.add_issue("critical", "performance",
                                  f"High system load: {load_1min}",
-                                 "Investigate high CPU usage and resource contention")
+                                 "Investigate high CPU usage and resource contention",
+                                 source_command=self.extract_command('loadavg'),
+                                 evidence=load_evidence)
                 elif load_1min > 4.0:
                     self.add_issue("warning", "performance",
                                  f"Elevated system load: {load_1min}",
-                                 "Monitor system load trends")
+                                 "Monitor system load trends",
+                                 source_command=self.extract_command('loadavg'),
+                                 evidence=load_evidence)
             except (ValueError, IndexError):
                 pass
         
@@ -318,14 +373,19 @@ class ProxmoxAnalyzer:
     def analyze_log_analysis(self) -> Dict[str, Any]:
         """Analyze log data"""
         
+        recent_errors_output = self.outputs.get('recent_errors', '')
         recent_errors = self.count_non_header_lines('recent_errors')
         boot_issues = self.count_non_header_lines('boot_issues')
         kernel_issues = self.count_non_header_lines('kernel_issues')
         
         if recent_errors > 10:
+            error_evidence = [line.strip() for line in recent_errors_output.split('\n') 
+                             if line.strip() and not line.startswith('===')][:5]
             self.add_issue("warning", "logs",
                          f"High number of recent errors: {recent_errors}",
-                         "Review system logs for recurring issues")
+                         "Review system logs for recurring issues",
+                         source_command=self.extract_command('recent_errors'),
+                         evidence=error_evidence)
         
         return {
             "recent_errors_count": recent_errors,
@@ -338,33 +398,51 @@ class ProxmoxAnalyzer:
         
         # Count available updates
         upgradable = self.count_non_header_lines('apt_upgradable')
+        security_updates_output = self.outputs.get('security_updates', '')
         security_updates = self.count_non_header_lines('security_updates')
         
         if security_updates > 0:
+            sec_evidence = [line.strip() for line in security_updates_output.split('\n') 
+                           if line.strip() and not line.startswith('===')][:5]
             self.add_issue("warning", "security",
                          f"{security_updates} security updates available",
-                         "Apply security updates as soon as possible")
+                         "Apply security updates as soon as possible",
+                         source_command=self.extract_command('security_updates'),
+                         evidence=sec_evidence)
         
         if upgradable > 20:
+            upgradable_output = self.outputs.get('apt_upgradable', '')
+            upgrade_evidence = [line.strip() for line in upgradable_output.split('\n') 
+                               if line.strip() and not line.startswith('===')][:5]
             self.add_issue("info", "maintenance",
                          f"{upgradable} packages can be upgraded",
-                         "Schedule maintenance window for system updates")
+                         "Schedule maintenance window for system updates",
+                         source_command=self.extract_command('apt_upgradable'),
+                         evidence=upgrade_evidence)
         
         # Check certificate validity
         cert_check = self.outputs.get('cert_check', '')
         cert_valid = 'Certificate will not expire' in cert_check
         
         if not cert_valid:
+            cert_evidence = [line.strip() for line in cert_check.split('\n') if line.strip()][:3]
             self.add_issue("warning", "security",
                          "SSL certificate may be expiring soon",
-                         "Check certificate expiration and renew if needed")
+                         "Check certificate expiration and renew if needed",
+                         source_command=self.extract_command('cert_check'),
+                         evidence=cert_evidence)
         
         # Check failed logins
+        failed_logins_output = self.outputs.get('failed_logins', '')
         failed_logins = self.count_non_header_lines('failed_logins')
         if failed_logins > 10:
+            login_evidence = [line.strip() for line in failed_logins_output.split('\n') 
+                             if line.strip() and not line.startswith('===')][:5]
             self.add_issue("warning", "security",
                          f"High number of failed logins: {failed_logins}",
-                         "Review security logs and consider fail2ban")
+                         "Review security logs and consider fail2ban",
+                         source_command=self.extract_command('failed_logins'),
+                         evidence=login_evidence)
         
         return {
             "upgradable_packages": upgradable,
@@ -414,9 +492,10 @@ class ProxmoxAnalyzer:
             return "healthy"
     
     # Utility methods
-    def add_issue(self, severity: str, category: str, message: str, recommendation: str):
+    def add_issue(self, severity: str, category: str, message: str, recommendation: str, 
+                  source_command: str = "unknown", evidence: List[str] = None):
         """Add an issue to the issues list"""
-        self.issues.append(HealthIssue(severity, category, message, recommendation))
+        self.issues.append(HealthIssue(severity, category, message, recommendation, source_command, evidence or []))
     
     def extract_first_line(self, output_key: str) -> str:
         """Extract first non-header line from output"""
@@ -455,6 +534,14 @@ class ProxmoxAnalyzer:
         """Count regex pattern matches in output"""
         output = self.outputs.get(output_key, '')
         return len(re.findall(pattern, output, re.IGNORECASE))
+    
+    def extract_command(self, output_key: str) -> str:
+        """Extract the actual command from the output header"""
+        output = self.outputs.get(output_key, '')
+        match = re.search(r'=== Command: (.+?) ===', output)
+        if match:
+            return match.group(1)
+        return output_key  # Fallback to the key name
 
 def main():
     parser = argparse.ArgumentParser(description='Analyze Proxmox health check data')
@@ -582,6 +669,13 @@ def generate_markdown_report(report: Dict[str, Any]) -> str:
                 md.append(f"**{i}. {issue['message']}**")
                 md.append(f"   - **Category:** {issue['category']}")
                 md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"   - **Source Command:** `{issue['source_command']}`")
+                if issue.get('evidence'):
+                    md.append(f"   - **Evidence:**")
+                    for evidence_line in issue['evidence']:
+                        md.append(f"     ```")
+                        md.append(f"     {evidence_line}")
+                        md.append(f"     ```")
                 md.append(f"")
         
         # Warning issues
@@ -592,6 +686,13 @@ def generate_markdown_report(report: Dict[str, Any]) -> str:
                 md.append(f"**{i}. {issue['message']}**")
                 md.append(f"   - **Category:** {issue['category']}")
                 md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"   - **Source Command:** `{issue['source_command']}`")
+                if issue.get('evidence'):
+                    md.append(f"   - **Evidence:**")
+                    for evidence_line in issue['evidence']:
+                        md.append(f"     ```")
+                        md.append(f"     {evidence_line}")
+                        md.append(f"     ```")
                 md.append(f"")
         
         # Info issues
@@ -602,6 +703,13 @@ def generate_markdown_report(report: Dict[str, Any]) -> str:
                 md.append(f"**{i}. {issue['message']}**")
                 md.append(f"   - **Category:** {issue['category']}")
                 md.append(f"   - **Recommendation:** {issue['recommendation']}")
+                md.append(f"   - **Source Command:** `{issue['source_command']}`")
+                if issue.get('evidence'):
+                    md.append(f"   - **Evidence:**")
+                    for evidence_line in issue['evidence']:
+                        md.append(f"     ```")
+                        md.append(f"     {evidence_line}")
+                        md.append(f"     ```")
                 md.append(f"")
     
     # Detailed Analysis Sections
