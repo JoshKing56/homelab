@@ -1,54 +1,77 @@
 terraform {
   required_providers {
     proxmox = {
-      source  = "telmate/proxmox"
-      version = "2.9.14"
+      source  = "bpg/proxmox"
+      version = "~> 0.71"
     }
   }
 }
 
-resource "proxmox_lxc" "container" {
-  target_node  = "pve"
-  hostname     = var.hostname
-  vmid         = 0 # Apparently 0 means it uses the next available
-  description  = var.description
-  ostemplate   = var.ostemplate
-  unprivileged = var.unprivileged
+resource "proxmox_virtual_environment_container" "container" {
+  node_name = "pve"
+  # vm_id omitted to use next available
 
-  cores  = var.cores
-  memory = var.memory
-  swap   = var.swap != null ? var.swap : min(max(1024, var.memory / 2), 4096) #Logic based on recommendations from online, may need tweaking
-  # Root Storage
-  rootfs {
-    storage = "local-lvm"
-    size    = var.rootfs_size
+  description = var.description
+
+  initialization {
+    hostname = var.hostname
+
+    ip_config {
+      ipv4 {
+        address = var.ip_address == "dhcp" ? "dhcp" : var.ip_address
+      }
+    }
+
+    user_account {
+      keys = [trimspace(file(pathexpand(var.ssh_key)))]
+    }
   }
 
-  network {
-    name     = "eth0"
-    bridge   = var.network_bridge != null ? var.network_bridge : "vmbr0"
-    ip       = var.ip_address
-    tag      = var.vlan_tag
-    firewall = var.firewall_enabled
+  network_interface {
+    name   = "eth0"
+    bridge = var.network_bridge != null ? var.network_bridge : "vmbr0"
+    vlan_id = var.vlan_tag
+    enabled = true
+  }
+
+  operating_system {
+    template_file_id = var.ostemplate
+    type             = "ubuntu"
+  }
+
+  cpu {
+    cores = var.cores
+  }
+
+  memory {
+    dedicated = var.memory
+    swap      = var.swap != null ? var.swap : min(max(1024, var.memory / 2), 4096)
+  }
+
+  disk {
+    datastore_id = "local-lvm"
+    size         = parseint(replace(var.rootfs_size, "G", ""), 10)
   }
 
   features {
     nesting = var.nesting_enabled
     fuse    = var.fuse_enabled
     keyctl  = var.keyctl_enabled
-    mknod   = var.mknod_enabled
   }
 
-  # SSH public key for root access
-  ssh_public_keys = file(pathexpand(var.ssh_key)) #This makes it so the ~ expands to a real path
+  started     = var.start
+  start_on_boot = var.onboot
+  startup {
+    order = var.startup_order
+  }
 
-  onboot  = var.onboot
-  start   = var.start
-  startup = var.startup_order != null ? "order=${var.startup_order}" : null
+  unprivileged = var.unprivileged
 
   lifecycle {
     ignore_changes = [
-      network
+      network_interface,
+      operating_system,
+      initialization
     ]
   }
 }

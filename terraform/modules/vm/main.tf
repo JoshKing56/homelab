@@ -1,48 +1,79 @@
 terraform {
   required_providers {
     proxmox = {
-      source  = "telmate/proxmox"
-      version = "2.9.14"
+      source  = "bpg/proxmox"
+      version = "~> 0.71"
     }
   }
 }
 
-resource "proxmox_vm_qemu" "vm" {
-  target_node = "pve"
-  vmid        = 0 # 0 means it uses the next available
-  name        = var.hostname
-  desc        = var.description
+resource "proxmox_virtual_environment_vm" "vm" {
+  node_name = "pve"
+  # vm_id omitted to use next available
+  name      = var.hostname
+  description = var.description
 
-  cores   = var.cores
-  sockets = var.sockets
-  memory  = var.memory
+  cpu {
+    cores   = var.cores
+    sockets = var.sockets
+  }
+
+  memory {
+    dedicated = var.memory
+  }
+
+  agent {
+    enabled = var.qemu_agent_enabled
+  }
+
+  bios = var.bios
 
   disk {
-    type    = var.disk_type
-    storage = "storagezfs"
-    size    = var.disk_size
-    ssd     = var.disk_ssd ? 1 : 0
-  }
-  network {
-    model  = var.network_model
-    bridge = var.network_bridge
-    tag    = var.vlan_tag
+    datastore_id = var.storage_name
+    file_format  = "raw"
+    interface    = var.disk_type
+    size         = parseint(replace(var.disk_size, "G", ""), 10)
+    ssd          = var.disk_ssd
   }
 
-  bios  = var.bios
-  boot  = var.boot
-  agent = var.qemu_agent_enabled ? 1 : 0
-  iso   = var.iso_file
+  dynamic "cdrom" {
+    for_each = var.iso_file != null ? [1] : []
+    content {
+      enabled   = true
+      file_id   = var.iso_file
+      interface = "ide2"
+    }
+  }
 
-  os_type = var.os_type
+  network_device {
+    bridge  = var.network_bridge
+    model   = var.network_model
+    vlan_id = var.vlan_tag
+  }
 
-  onboot   = var.onboot
-  startup  = var.startup_order != null ? "order=${var.startup_order}" : null
-  oncreate = var.start
+  operating_system {
+    type = var.os_type
+  }
+
+  started       = var.start
+  on_boot       = var.onboot
+
+  dynamic "startup" {
+    for_each = var.startup_order != null ? [1] : []
+    content {
+      order = var.startup_order
+    }
+  }
 
   lifecycle {
     ignore_changes = [
-      network
+      network_device,
+      disk,
+      cdrom,
+      efi_disk,
+      hostpci,
+      cpu,
+      bios
     ]
   }
 }
