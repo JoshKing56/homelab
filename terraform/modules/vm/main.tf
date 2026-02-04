@@ -8,7 +8,7 @@ terraform {
 }
 
 resource "proxmox_virtual_environment_vm" "vm" {
-  node_name = "pve"
+  node_name = var.node_name
   # vm_id omitted to use next available
   name      = var.hostname
   description = var.description

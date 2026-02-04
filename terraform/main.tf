@@ -20,15 +20,16 @@ provider "proxmox" {
 module "container" {
   for_each    = { for container in var.containers : container.hostname => container }
   source      = "./modules/container"
+  node_name   = var.proxmox_host
   hostname    = each.value.hostname
   description = each.value.description
   ostemplate  = var.container_template
 
-  cores  = each.value.cores
-  memory = each.value.memory
-  swap   = each.value.swap
+  cores  = coalesce(each.value.cores, 2)
+  memory = coalesce(each.value.memory, 2048)
+  swap   = coalesce(each.value.swap, 512)
 
-  rootfs_size = each.value.rootfs_size
+  rootfs_size = coalesce(each.value.rootfs_size, "8G")
 
   network_bridge = var.nic_name
   vlan_tag       = each.value.vlan_tag != null ? each.value.vlan_tag : var.vlan_num
@@ -48,29 +49,30 @@ module "container" {
 module "vm" {
   for_each    = { for vm in var.vms : vm.hostname => vm }
   source      = "./modules/vm"
+  node_name   = var.proxmox_host
   hostname    = each.value.hostname
   description = each.value.description
 
-  cores   = each.value.cores
-  sockets = each.value.sockets
-  memory  = each.value.memory
+  cores   = coalesce(each.value.cores, 2)
+  sockets = coalesce(each.value.sockets, 1)
+  memory  = coalesce(each.value.memory, 2048)
 
-  disk_type    = each.value.disk_type
-  disk_size    = each.value.disk_size
-  disk_ssd     = each.value.disk_ssd
-  storage_name = each.value.storage_name
+  disk_type    = coalesce(each.value.disk_type, "scsi")
+  disk_size    = coalesce(each.value.disk_size, "20G")
+  disk_ssd     = coalesce(each.value.disk_ssd, true)
+  storage_name = coalesce(each.value.storage_name, "local-lvm")
 
-  network_model  = each.value.network_model
+  network_model  = coalesce(each.value.network_model, "virtio")
   network_bridge = var.nic_name
   vlan_tag       = each.value.vlan_tag != null ? each.value.vlan_tag : var.vlan_num
 
-  bios               = each.value.bios
-  boot               = each.value.boot
-  qemu_agent_enabled = each.value.qemu_agent_enabled
+  bios               = coalesce(each.value.bios, "seabios")
+  boot               = coalesce(each.value.boot, "order=scsi0;cdrom;net0")
+  qemu_agent_enabled = coalesce(each.value.qemu_agent_enabled, true)
   iso_file           = each.value.iso_file != null ? each.value.iso_file : var.iso_file
-  os_type            = each.value.os_type
+  os_type            = coalesce(each.value.os_type, "l26")
 
-  onboot        = each.value.onboot
+  onboot        = coalesce(each.value.onboot, true)
   startup_order = each.value.startup_order
   start         = each.value.start != null ? each.value.start : var.start
 }

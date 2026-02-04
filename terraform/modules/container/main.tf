@@ -61,8 +61,12 @@ resource "proxmox_virtual_environment_container" "container" {
 
   started     = var.start
   start_on_boot = var.onboot
-  startup {
-    order = var.startup_order
+
+  dynamic "startup" {
+    for_each = var.startup_order != null ? [1] : []
+    content {
+      order = var.startup_order
+    }
   }
 
   unprivileged = var.unprivileged

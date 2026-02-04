@@ -3,6 +3,12 @@ variable "hostname" {
   type        = string
 }
 
+variable "node_name" {
+  description = "Proxmox node name"
+  type        = string
+  default     = "pve"
+}
+
 # vmid is hardcoded to 0 in main.tf to use the next available ID
 variable "description" {
   description = "Description of the VM"
