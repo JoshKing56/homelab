@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "proxmox" {
-  endpoint = var.api_url
+  endpoint  = var.api_url
   api_token = "${var.token_id}=${var.token_secret}"
   insecure  = true # Set to false in production environments
 

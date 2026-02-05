@@ -10,7 +10,7 @@ terraform {
 resource "proxmox_virtual_environment_vm" "vm" {
   node_name = var.node_name
   # vm_id omitted to use next available
-  name      = var.hostname
+  name        = var.hostname
   description = var.description
 
   cpu {
@@ -55,8 +55,8 @@ resource "proxmox_virtual_environment_vm" "vm" {
     type = var.os_type
   }
 
-  started       = var.start
-  on_boot       = var.onboot
+  started = var.start
+  on_boot = var.onboot
 
   dynamic "startup" {
     for_each = var.startup_order != null ? [1] : []

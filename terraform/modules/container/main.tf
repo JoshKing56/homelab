@@ -28,8 +28,8 @@ resource "proxmox_virtual_environment_container" "container" {
   }
 
   network_interface {
-    name   = "eth0"
-    bridge = var.network_bridge != null ? var.network_bridge : "vmbr0"
+    name    = "eth0"
+    bridge  = var.network_bridge != null ? var.network_bridge : "vmbr0"
     vlan_id = var.vlan_tag
     enabled = true
   }
@@ -59,7 +59,7 @@ resource "proxmox_virtual_environment_container" "container" {
     keyctl  = var.keyctl_enabled
   }
 
-  started     = var.start
+  started       = var.start
   start_on_boot = var.onboot
 
   dynamic "startup" {

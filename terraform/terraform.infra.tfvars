@@ -22,7 +22,7 @@ containers = [
     ip_address      = "dhcp"
     unprivileged    = true
     nesting_enabled = true
-    start           = false  # Don't auto-start on import
+    start           = false # Don't auto-start on import
   },
 ]
 
@@ -45,7 +45,7 @@ vms = [
     bios               = "seabios"
     qemu_agent_enabled = true
     os_type            = "l26"
-    start              = false  # Don't auto-start on import
+    start              = false # Don't auto-start on import
   },
   {
     hostname           = "dad-sandbox"
@@ -62,7 +62,7 @@ vms = [
     bios               = "seabios"
     qemu_agent_enabled = true
     os_type            = "l26"
-    start              = false  # Don't auto-start on import
+    start              = false # Don't auto-start on import
   },
   {
     hostname           = "glm-server"
@@ -79,6 +79,6 @@ vms = [
     bios               = "ovmf"
     qemu_agent_enabled = false
     os_type            = "l26"
-    start              = false  # Don't auto-start on import
+    start              = false # Don't auto-start on import
   },
 ]
