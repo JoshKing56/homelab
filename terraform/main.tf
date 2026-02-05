@@ -57,20 +57,20 @@ module "vm" {
   sockets = coalesce(each.value.sockets, 1)
   memory  = coalesce(each.value.memory, 2048)
 
-  disk_type    = coalesce(each.value.disk_type, "scsi")
-  disk_size    = coalesce(each.value.disk_size, "20G")
+  disk_type    = each.value.disk_type != null && each.value.disk_type != "" ? each.value.disk_type : "scsi"
+  disk_size    = each.value.disk_size != null && each.value.disk_size != "" ? each.value.disk_size : "20G"
   disk_ssd     = coalesce(each.value.disk_ssd, true)
-  storage_name = coalesce(each.value.storage_name, "local-lvm")
+  storage_name = each.value.storage_name != null && each.value.storage_name != "" ? each.value.storage_name : "local-lvm"
 
-  network_model  = coalesce(each.value.network_model, "virtio")
+  network_model  = each.value.network_model != null && each.value.network_model != "" ? each.value.network_model : "virtio"
   network_bridge = var.nic_name
   vlan_tag       = each.value.vlan_tag != null ? each.value.vlan_tag : var.vlan_num
 
-  bios               = coalesce(each.value.bios, "seabios")
-  boot               = coalesce(each.value.boot, "order=scsi0;cdrom;net0")
+  bios               = each.value.bios != null && each.value.bios != "" ? each.value.bios : "seabios"
+  boot               = each.value.boot != null && each.value.boot != "" ? each.value.boot : "order=scsi0;cdrom;net0"
   qemu_agent_enabled = coalesce(each.value.qemu_agent_enabled, true)
   iso_file           = each.value.iso_file != null ? each.value.iso_file : var.iso_file
-  os_type            = coalesce(each.value.os_type, "l26")
+  os_type            = each.value.os_type != null && each.value.os_type != "" ? each.value.os_type : "l26"
 
   onboot        = coalesce(each.value.onboot, true)
   startup_order = each.value.startup_order
