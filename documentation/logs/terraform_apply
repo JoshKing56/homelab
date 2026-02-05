@@ -1,0 +1,31 @@
+│   with module.vm["ubuntu-server"].proxmox_virtual_environment_vm.vm,
+│   on modules/vm/main.tf line 10, in resource "proxmox_virtual_environment_vm" "vm":
+│   10: resource "proxmox_virtual_environment_vm" "vm" {
+│ 
+│ Remove this attribute's configuration as it is no longer used and the attribute will be removed in the next
+│ version of the provider. Set `file_id` to `none` to leave the CDROM drive empty.
+│ 
+│ (and 2 more similar warnings elsewhere)
+╵
+╷
+│ Error: Defined disk interface not supported. Interface was , but only [ide sata scsi virtio] are supported
+│ 
+│   with module.vm["ubuntu-server"].proxmox_virtual_environment_vm.vm,
+│   on modules/vm/main.tf line 10, in resource "proxmox_virtual_environment_vm" "vm":
+│   10: resource "proxmox_virtual_environment_vm" "vm" {
+│ 
+╵
+╷
+│ Error: Defined disk interface not supported. Interface was , but only [ide sata scsi virtio] are supported
+│ 
+│   with module.vm["dad-sandbox"].proxmox_virtual_environment_vm.vm,
+│   on modules/vm/main.tf line 10, in resource "proxmox_virtual_environment_vm" "vm":
+│   10: resource "proxmox_virtual_environment_vm" "vm" {
+│ 
+╵
+╷
+│ Error: Defined disk interface not supported. Interface was , but only [ide sata scsi virtio] are supported
+│ 
+│   with module.vm["glm-server"].proxmox_virtual_environment_vm.vm,
+│   on modules/vm/main.tf line 10, in resource "proxmox_virtual_environment_vm" "vm":
+│   10: resource "proxmox_virtual_environment_vm" "vm" {
