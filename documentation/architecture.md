@@ -1,5 +1,6 @@
 # Overall architecture
 There should only be a few VMs, each with a specific usecase
+
 1. Prod: This should be where _stable_ and _tested_ software should be deployed to
 2. Dev: This should be a copy of prod architecturally, but where software can be deployed and tested
 3. Sandbox: The unstable vm. Can be nuked at a moments notice, and where things can be tested. We can rename dad-sandbox and use as the sandbox
@@ -12,17 +13,22 @@ There should only be a few VMs, each with a specific usecase
 I should define the resource allocation for each vm not in static numbers, but in terms of the data and util I get from `proxmox_virtual_environment_nodes`. 
 ## Prod and Dev for development
 OS: Debian, headless
+
 Running: Kubernetes with Docker
+
 Should be on separate vnets
 
 ## Sandbox
 OS: This can stay as ubuntu with a UI
 Schedule a complete wipe every x number of days
+
 On it's own vnet
 
 ## Services
 May have to split this into multiple vms. Unsure yet.
+
 Probably run a kuberntes cluster with lots of different services.
+
 OS: Debian, may be useful to run a UI. Decide this once we have a more concrete list of what we want to run
 
 ## Batch jobs
