@@ -2,13 +2,13 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.71"
+      version = "= 0.71.0"
     }
   }
 }
 
 resource "proxmox_virtual_environment_container" "container" {
-  node_name = "pve"
+  node_name = var.node_name
   # vm_id omitted to use next available
 
   description = var.description
@@ -75,7 +75,10 @@ resource "proxmox_virtual_environment_container" "container" {
     ignore_changes = [
       network_interface,
       operating_system,
-      initialization
+      initialization,
+      unprivileged,
+      tags,
+      console
     ]
   }
 }

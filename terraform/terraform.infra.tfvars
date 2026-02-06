@@ -24,6 +24,19 @@ containers = [
     nesting_enabled = true
     start           = false # Don't auto-start on import
   },
+  {
+    hostname        = "netbox"
+    description     = "Netbox container"
+    cores           = 2
+    memory          = 2048
+    swap            = 512
+    rootfs_size     = "8G"
+    ip_address      = "192.168.1.169/24,gw=192.168.1.1"
+    vlan_tag        = 0
+    unprivileged    = false  # Matches existing container
+    nesting_enabled = false
+    start           = false
+  },
 ]
 
 iso_file = "local:iso/ubuntu-24.04.2-desktop-amd64.iso"
@@ -52,7 +65,7 @@ vms = [
     description        = "Dad sandbox VM"
     cores              = 4
     sockets            = 1
-    memory             = 32768
+    memory             = 49152
     disk_type          = "scsi"
     disk_size          = "750G"
     disk_ssd           = false

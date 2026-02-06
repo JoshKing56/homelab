@@ -2,9 +2,14 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.71"
+      version = "= 0.71.0"
     }
   }
+}
+
+locals {
+  # Ensure disk_type is never null or empty string
+  safe_disk_type = var.disk_type != null && var.disk_type != "" ? var.disk_type : "scsi"
 }
 
 resource "proxmox_virtual_environment_vm" "vm" {
@@ -31,7 +36,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   disk {
     datastore_id = var.storage_name
     file_format  = "raw"
-    interface    = var.disk_type
+    interface    = local.safe_disk_type
     size         = parseint(replace(var.disk_size, "G", ""), 10)
     ssd          = var.disk_ssd
   }
@@ -73,7 +78,11 @@ resource "proxmox_virtual_environment_vm" "vm" {
       efi_disk,
       hostpci,
       cpu,
-      bios
+      bios,
+      kvm_arguments,
+      machine,
+      serial_device,
+      vga
     ]
   }
 }
