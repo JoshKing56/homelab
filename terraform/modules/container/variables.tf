@@ -121,3 +121,9 @@ variable "start" {
   type        = bool
   default     = false
 }
+
+variable "storage_name" {
+  description = "Storage name where the container rootfs will be created"
+  type        = string
+  default     = "storagezfs"
+}

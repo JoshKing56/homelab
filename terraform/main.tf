@@ -29,7 +29,8 @@ module "container" {
   memory = coalesce(each.value.memory, 2048)
   swap   = coalesce(each.value.swap, 512)
 
-  rootfs_size = coalesce(each.value.rootfs_size, "8G")
+  rootfs_size  = coalesce(each.value.rootfs_size, "8G")
+  storage_name = each.value.storage_name != null && each.value.storage_name != "" ? each.value.storage_name : "storagezfs"
 
   network_bridge = var.nic_name
   vlan_tag       = each.value.vlan_tag != null ? each.value.vlan_tag : var.vlan_num

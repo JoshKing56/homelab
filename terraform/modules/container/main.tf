@@ -49,7 +49,7 @@ resource "proxmox_virtual_environment_container" "container" {
   }
 
   disk {
-    datastore_id = "local-lvm"
+    datastore_id = var.storage_name
     size         = parseint(replace(var.rootfs_size, "G", ""), 10)
   }
 

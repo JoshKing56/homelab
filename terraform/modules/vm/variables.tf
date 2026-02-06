@@ -43,7 +43,7 @@ variable "disk_type" {
 variable "storage_name" {
   description = "Storage name where the disk will be created"
   type        = string
-  default     = "local-lvm"
+  default     = "storagezfs"
 }
 
 variable "disk_size" {

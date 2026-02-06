@@ -33,7 +33,7 @@ containers = [
     rootfs_size     = "8G"
     ip_address      = "192.168.1.169/24,gw=192.168.1.1"
     vlan_tag        = 0
-    unprivileged    = false  # Matches existing container
+    unprivileged    = false # Matches existing container
     nesting_enabled = false
     start           = false
   },
